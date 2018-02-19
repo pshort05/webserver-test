@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 from timeme import timeme
-import urlparse
 import time
 import logging
-import SimpleHTTPServer
 import SocketServer
-from BaseHTTPServer import HTTPServer
-from BaseHTTPServer import BaseHTTPRequestHandler
+import ssl
+import sys
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+import SimpleHTTPServer
 
 # -- Defaults --
 DEFAULT_PORT = 8000
+DEFAULT_SSL_PORT = 4443
 
 # ----> Basic application setup goes here <----
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,7 +25,7 @@ class GetHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Last-Modified', self.date_time_string(time.time()))
         self.end_headers()
-        f = open("/Users/paul/git/webserver/book.txt")
+        f = open("book.txt")
         self.wfile.write(f.read())
         f.close()
         return
@@ -33,15 +34,26 @@ class GetHandler(BaseHTTPRequestHandler):
 class WebServer(object):
 
     @classmethod
-    def run(cls, port=DEFAULT_PORT):
-        #Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-        httpd = SocketServer.TCPServer(("", port), GetHandler)
+    def run(cls, port=DEFAULT_PORT, addr='0.0.0.0'):
+        httpd = SocketServer.TCPServer((addr, port), GetHandler)
         logging.debug("Running server on port %d", port)
         httpd.serve_forever()
 
 
-if __name__ == '__main__':
-    WebServer.run()
+class SSLWebServer:
 
+    @classmethod
+    def run(cls, port=DEFAULT_SSL_PORT, addr='0.0.0.0'):
+        httpd = HTTPServer((addr, port), SimpleHTTPServer.SimpleHTTPRequestHandler)
+        httpd.socket = ssl.wrap_socket(httpd.socket, certfile='./server.pem', server_side=True)
+        logging.debug("Running SSL server on port %d", port)
+        httpd.serve_forever()
+
+if __name__ == '__main__':
+    # Check for the ssl command line option
+    if sys.arg[1] == 'ssl':
+        SSLWebServer.run()
+    else:
+        WebServer.run()
 
 
